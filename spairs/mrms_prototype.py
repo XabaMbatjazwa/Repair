@@ -383,7 +383,8 @@ elif menu == "📝 Job Cards":
         filtered = [j for j in st.session_state.job_cards if status_filter == "All" or j["status"] == status_filter]
         for job in filtered:
             badge = get_status_badge(job["status"])
-            with st.expander(f"Job #{job['job_id']} – {job['vehicle']} – {badge}", unsafe_allow_html=True):
+            with st.expander(f"Job #{job['job_id']} – {job['vehicle']}"):
+                st.markdown(badge, unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown(f"**Customer:** {job['customer_name']}")
@@ -393,7 +394,7 @@ elif menu == "📝 Job Cards":
                     st.markdown(f"**Created:** {job['created_date']}")
                     if job['status'] == "Completed":
                         st.markdown(f"**Completed:** {job['completed_date']}")
-                # Workflow
+        # Workflow
                 if job["status"] == "Draft":
                     if st.button(f"✅ Approve Job #{job['job_id']}"):
                         job["status"] = "Approved"
