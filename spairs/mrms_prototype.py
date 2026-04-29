@@ -24,24 +24,19 @@ DB_FILE = "autofix.db"
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    # Customers
     c.execute('''CREATE TABLE IF NOT EXISTS customers
                  (id INTEGER PRIMARY KEY, name TEXT, phone TEXT, email TEXT, address TEXT)''')
-    # Vehicles
     c.execute('''CREATE TABLE IF NOT EXISTS vehicles
                  (id INTEGER PRIMARY KEY, customer_id INTEGER, customer_name TEXT,
                   make TEXT, model TEXT, year INTEGER, license_plate TEXT, vin TEXT)''')
-    # Job cards
     c.execute('''CREATE TABLE IF NOT EXISTS job_cards
                  (id INTEGER PRIMARY KEY, job_id INTEGER, vehicle_id INTEGER, customer_name TEXT,
                   vehicle TEXT, complaint TEXT, estimated_hours REAL, status TEXT,
                   created_date TEXT, completed_date TEXT, mechanic_notes TEXT,
                   actual_labor_hours REAL, estimated_parts TEXT, actual_parts_used TEXT)''')
-    # Parts
     c.execute('''CREATE TABLE IF NOT EXISTS parts
                  (id INTEGER PRIMARY KEY, part_id INTEGER, name TEXT, sku TEXT,
                   price REAL, quantity INTEGER, reorder_level INTEGER)''')
-    # Next IDs table
     c.execute('''CREATE TABLE IF NOT EXISTS next_ids
                  (prefix TEXT PRIMARY KEY, next_id INTEGER)''')
     conn.commit()
@@ -50,14 +45,11 @@ def init_db():
 def load_data():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    # Customers
     c.execute("SELECT id, name, phone, email, address FROM customers")
     customers = {row[0]: {"id": row[0], "name": row[1], "phone": row[2], "email": row[3], "address": row[4]} for row in c.fetchall()}
-    # Vehicles
     c.execute("SELECT id, customer_id, customer_name, make, model, year, license_plate, vin FROM vehicles")
     vehicles = [{"vehicle_id": row[0], "customer_id": row[1], "customer_name": row[2],
                  "make": row[3], "model": row[4], "year": row[5], "license_plate": row[6], "vin": row[7]} for row in c.fetchall()]
-    # Job cards
     c.execute("SELECT id, job_id, vehicle_id, customer_name, vehicle, complaint, estimated_hours, status, created_date, completed_date, mechanic_notes, actual_labor_hours, estimated_parts, actual_parts_used FROM job_cards")
     job_cards = []
     for row in c.fetchall():
@@ -69,10 +61,8 @@ def load_data():
             "actual_parts_used": eval(row[13]) if row[13] else []
         }
         job_cards.append(job)
-    # Parts
     c.execute("SELECT part_id, name, sku, price, quantity, reorder_level FROM parts")
     parts = [{"part_id": row[0], "name": row[1], "sku": row[2], "price": row[3], "quantity": row[4], "reorder_level": row[5]} for row in c.fetchall()]
-    # Next IDs
     c.execute("SELECT prefix, next_id FROM next_ids")
     next_ids = {row[0]: row[1] for row in c.fetchall()}
     conn.close()
@@ -150,7 +140,6 @@ if "initialized" not in st.session_state:
     st.session_state.next_ids = next_ids if next_ids else {"customer": 1, "vehicle": 1, "job": 1, "part": 1}
     st.session_state.initialized = True
 
-# Helper to get next ID and persist
 def get_next_id(prefix):
     nid = st.session_state.next_ids.get(prefix, 1)
     st.session_state.next_ids[prefix] = nid + 1
@@ -158,7 +147,7 @@ def get_next_id(prefix):
     return nid
 
 # -------------------------------
-# CUSTOM CSS (same as before)
+# CUSTOM CSS
 st.markdown("""
 <style>
     .main { padding: 0rem 1rem; }
@@ -191,12 +180,10 @@ def get_status_badge(status):
 # -------------------------------
 # SIDEBAR WITH LOGO
 st.sidebar.markdown('<div style="text-align: center;">', unsafe_allow_html=True)
-# Try to load logo from file
 logo_path = "logo.png"
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, use_container_width=True)
 else:
-    # Try .jpg
     logo_path_jpg = "logo.jpg"
     if os.path.exists(logo_path_jpg):
         st.sidebar.image(logo_path_jpg, use_container_width=True)
@@ -212,7 +199,7 @@ menu = st.sidebar.radio(
 )
 
 # -------------------------------
-# DASHBOARD (same as before but using session state)
+# DASHBOARD
 if menu == "🏠 Dashboard":
     st.markdown("<h1 style='text-align: center;'>📊 Dashboard</h1>", unsafe_allow_html=True)
     total_jobs = len(st.session_state.job_cards)
@@ -233,7 +220,9 @@ if menu == "🏠 Dashboard":
     recent = sorted(st.session_state.job_cards, key=lambda x: x["created_date"], reverse=True)[:5]
     if recent:
         for job in recent:
-            with st.expander(f"Job #{job['job_id']} – {job['vehicle']} – {job['customer_name']} – {get_status_badge(job['status'])}", unsafe_allow_html=True):
+            badge = get_status_badge(job["status"])
+            with st.expander(f"Job #{job['job_id']} – {job['vehicle']} – {job['customer_name']}"):
+                st.markdown(badge, unsafe_allow_html=True)
                 st.write(f"**Complaint:** {job['complaint']}")
                 st.write(f"**Created:** {job['created_date']}")
                 if job['status'] == 'Completed':
@@ -242,7 +231,7 @@ if menu == "🏠 Dashboard":
         st.info("No job cards yet. Go to **Job Cards** to create one.")
 
 # -------------------------------
-# CUSTOMERS & VEHICLES (modified to persist after each change)
+# CUSTOMERS & VEHICLES
 elif menu == "👥 Customers & Vehicles":
     st.markdown("<h1>👥 Customer & Vehicle Management</h1>", unsafe_allow_html=True)
     tabs = st.tabs(["➕ Register Customer", "🚗 Register Vehicle", "📋 Customer List"])
@@ -313,7 +302,7 @@ elif menu == "👥 Customers & Vehicles":
             st.info("No customers yet.")
 
 # -------------------------------
-# JOB CARDS (with persistence)
+# JOB CARDS (FIXED: NO unsafe_allow_html on expander)
 elif menu == "📝 Job Cards":
     st.markdown("<h1>📝 Job Card Management</h1>", unsafe_allow_html=True)
     with st.expander("➕ Create New Job Card", expanded=False):
@@ -374,7 +363,6 @@ elif menu == "📝 Job Cards":
                     st.rerun()
                 else:
                     st.error("Please enter a complaint.")
-    # List jobs
     st.subheader("📋 Existing Job Cards")
     if not st.session_state.job_cards:
         st.info("No job cards yet.")
@@ -383,7 +371,7 @@ elif menu == "📝 Job Cards":
         filtered = [j for j in st.session_state.job_cards if status_filter == "All" or j["status"] == status_filter]
         for job in filtered:
             badge = get_status_badge(job["status"])
-            with st.expander(f"Job #{job['job_id']} – {job['vehicle']}"):
+            with st.expander(f"Job #{job['job_id']} – {job['vehicle']} – {job['customer_name']}"):
                 st.markdown(badge, unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
                 with col1:
@@ -394,7 +382,6 @@ elif menu == "📝 Job Cards":
                     st.markdown(f"**Created:** {job['created_date']}")
                     if job['status'] == "Completed":
                         st.markdown(f"**Completed:** {job['completed_date']}")
-        # Workflow
                 if job["status"] == "Draft":
                     if st.button(f"✅ Approve Job #{job['job_id']}"):
                         job["status"] = "Approved"
@@ -448,7 +435,7 @@ elif menu == "📝 Job Cards":
                     st.dataframe(pd.DataFrame(job["actual_parts_used"])[["name", "quantity", "unit_price", "total"]], use_container_width=True)
 
 # -------------------------------
-# PARTS INVENTORY (with persistence)
+# PARTS INVENTORY
 elif menu == "🔩 Parts Inventory":
     st.markdown("<h1>🔩 Parts Inventory</h1>", unsafe_allow_html=True)
     with st.form("add_part", clear_on_submit=True):
@@ -495,7 +482,7 @@ elif menu == "🔩 Parts Inventory":
         st.info("No parts in inventory yet.")
 
 # -------------------------------
-# INVOICING & REPORTS (no changes except persistence already handled)
+# INVOICING & REPORTS
 elif menu == "💰 Invoicing & Reports":
     st.markdown("<h1>💰 Invoicing & Daily Reports</h1>", unsafe_allow_html=True)
     completed_jobs = [j for j in st.session_state.job_cards if j["status"] == "Completed"]
